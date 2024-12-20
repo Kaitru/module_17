@@ -15,40 +15,56 @@ async def all_users(db: Annotated[Session, Depends(get_db)]):
     return users
 
 @router.get("/{user_id}")
-async def user_by_id(db: Annotated[Session, Depends(get_db)], user_id: int):
+async def user_by_id(user_id: int, db: Annotated[Session, Depends(get_db)]):
     query = select(User).where(User.id == user_id)
     user = db.scalars(query).first()
     if user is None:
         raise HTTPException(status_code=404, detail="User was not found")
-    else:
-        return user
+    return user
 
 @router.post("/create")
 async def create_user(user: CreateUser, db: Annotated[Session, Depends(get_db)]):
     slug = slugify(f"{user.firstname}-{user.lastname}")
-    query = insert(User).values(username=user.username,
-                                firstname=user.firstname,
-                                lastname=user.lastname,
-                                age=user.age,
-                                slug=slug)
+    query = insert(User).values(
+        username=user.username,
+        firstname=user.firstname,
+        lastname=user.lastname,
+        age=user.age,
+        slug=slug
+    )
     db.execute(query)
     db.commit()
-
     return {"status_code": status.HTTP_201_CREATED, "transaction": "Successful"}
 
 @router.put("/{user_id}")
 async def update_user(user_id: int, user: UpdateUser, db: Annotated[Session, Depends(get_db)]):
-    query = update(User).where(User.id == user.id).values(username=user.username,
-                                                         firstname=user.firstname,
-                                                         lastname=user.lastname,
-                                                         age=user.age,
-                                                         slug=slugify(f"{user.firstname}-{user.lastname}"))
-    if user.id is None:
+    query = select(User).where(User.id == user_id)
+    existing_user = db.scalars(query).first()
+    
+    if existing_user is None:
         raise HTTPException(status_code=404, detail="User was not found")
-    else:
-        db.execute(query)
-        db.commit()
+    
+    update_query = update(User).where(User.id == user_id).values(
+        username=user.username,
+        firstname=user.firstname,
+        lastname=user.lastname,
+        age=user.age,
+        slug=slugify(f"{user.firstname}-{user.lastname}")
+    )
+    
+    db.execute(update_query)
+    db.commit()
+    return {"status_code": status.HTTP_200_OK, "transaction": "User update is successful!"}
 
 @router.delete("/{user_id}")
-async def delete_user(userdb: Annotated[Session, Depends(get_db)]):
-    pass
+async def delete_user(user_id: int, db: Annotated[Session, Depends(get_db)]):
+    query = select(User).where(User.id == user_id)
+    user = db.scalars(query).first()
+    
+    if user is None:
+        raise HTTPException(status_code=404, detail="User was not found")
+    
+    delete_query = delete(User).where(User.id == user_id)
+    db.execute(delete_query)
+    db.commit()
+    return {"status_code": status.HTTP_200_OK, "transaction": "User deletion is successful!"}
