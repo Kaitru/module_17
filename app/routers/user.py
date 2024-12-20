@@ -8,6 +8,16 @@ from sqlalchemy import insert, select, update, delete
 from slugify import slugify
 router = APIRouter(prefix="/user", tags=["user"])
 
+@router.get("/{user_id}/tasks")
+async def tasks_by_user_id(user_id: int, db: Annotated[Session, Depends(get_db)]):
+    query = select(User).where(User.id == user_id)
+    user = db.scalars(query).first()
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User was not found")
+
+    return user.tasks
+
 @router.get("/")
 async def all_users(db: Annotated[Session, Depends(get_db)]):
     query = select(User)
@@ -18,8 +28,10 @@ async def all_users(db: Annotated[Session, Depends(get_db)]):
 async def user_by_id(user_id: int, db: Annotated[Session, Depends(get_db)]):
     query = select(User).where(User.id == user_id)
     user = db.scalars(query).first()
+
     if user is None:
         raise HTTPException(status_code=404, detail="User was not found")
+
     return user
 
 @router.post("/create")
@@ -36,7 +48,7 @@ async def create_user(user: CreateUser, db: Annotated[Session, Depends(get_db)])
     db.commit()
     return {"status_code": status.HTTP_201_CREATED, "transaction": "Successful"}
 
-@router.put("/{user_id}")
+@router.put("/update")
 async def update_user(user_id: int, user: UpdateUser, db: Annotated[Session, Depends(get_db)]):
     query = select(User).where(User.id == user_id)
     existing_user = db.scalars(query).first()
@@ -56,15 +68,17 @@ async def update_user(user_id: int, user: UpdateUser, db: Annotated[Session, Dep
     db.commit()
     return {"status_code": status.HTTP_200_OK, "transaction": "User update is successful!"}
 
-@router.delete("/{user_id}")
+@router.delete("/delete")
 async def delete_user(user_id: int, db: Annotated[Session, Depends(get_db)]):
     query = select(User).where(User.id == user_id)
     user = db.scalars(query).first()
     
     if user is None:
         raise HTTPException(status_code=404, detail="User was not found")
-    
-    delete_query = delete(User).where(User.id == user_id)
-    db.execute(delete_query)
+
+    for task in user.tasks:
+        db.delete(task)
+
+    db.delete(user)
     db.commit()
     return {"status_code": status.HTTP_200_OK, "transaction": "User deletion is successful!"}
