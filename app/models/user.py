@@ -2,6 +2,7 @@ from sqlalchemy.orm import Relationship
 from app.backend.db import Base
 from sqlalchemy import Column, Integer, String
 
+
 class User(Base):
     __tablename__ = "users"
 
@@ -12,3 +13,4 @@ class User(Base):
     age = Column(Integer)
     slug = Column(String, unique=True, index=True)
     tasks = Relationship("Task", back_populates="user")
+
